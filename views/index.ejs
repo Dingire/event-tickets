@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= settings.eventName %> — Tickets</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="brand">&#x1F3C6; <%= settings.eventName %></div>
+    <a href="/admin/login">Organizer login</a>
+  </div>
+
+  <header class="hero">
+    <% if (settings.banner) { %>
+      <img src="/uploads/<%= settings.banner %>" alt="<%= settings.eventName %> banner" />
+    <% } %>
+    <div class="shade"></div>
+    <div class="inner">
+      <h1><%= settings.eventName %></h1>
+      <div class="when">
+        <span>&#x1F4C5; <%= toDateLabel %></span>
+        <span>&#x1F552; <%= toTimeLabel %></span>
+        <span>&#x1F4CD; <%= settings.venue %></span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="info wrap">
+      <% if (flash) { %>
+        <div class="alert <%= flash.type %>"><%= flash.msg %></div>
+      <% } %>
+      <h2>Event information</h2>
+      <p class="desc"><%= settings.description %></p>
+      <div class="info-grid">
+        <div class="cell"><div class="k">Event</div><div class="v"><%= settings.eventName %></div></div>
+        <div class="cell"><div class="k">Date</div><div class="v"><%= toDateLabel %></div></div>
+        <div class="cell"><div class="k">Venue</div><div class="v"><%= settings.venue %></div></div>
+        <div class="cell"><div class="k">Time</div><div class="v"><%= toTimeLabel %></div></div>
+      </div>
+    </section>
+
+    <section class="tickets wrap" id="tickets">
+      <div class="tckt-grid">
+        <div class="price-panel card">
+          <h2>Tickets</h2>
+          <div class="price-tag"><%= currency(settings.price) %><small> per ticket</small></div>
+          <div class="soldline"><%= total %> tickets total &middot; <%= sold %> sold &middot; <%= remaining %> remaining</div>
+          <div class="bar"><i style="width: <%= total > 0 ? Math.min(100, (sold / total) * 100) : 0 %>%"></i></div>
+        </div>
+
+        <form class="order-form card" action="/checkout" method="post">
+          <h2>Buy tickets</h2>
+
+          <% if (remaining <= 0) { %>
+            <div class="alert error">Sorry — all tickets are sold out. Check back soon.</div>
+          <% } else { %>
+
+          <div class="field">
+            <label for="qty">Number of tickets</label>
+            <div class="qty-row">
+              <select id="qty" name="qty">
+                <% for (let i = 1; i <= Math.min(10, Math.max(1, remaining)); i++) { %>
+                  <option value="<%= i %>"><%= i %> <%= i === 1 ? 'ticket' : 'tickets' %></option>
+                <% } %>
+              </select>
+              <div class="price-tag total" id="totalPrice" style="font-size:22px;margin:0"><%= currency(settings.price) %></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Payment method</label>
+            <div class="pay-opts">
+              <label class="pay-opt">
+                <input type="radio" name="method" value="airtel" checked />
+                <span class="logo airtel">AIRTEL</span>
+                <span class="meta">
+                  <span class="name">Airtel Money</span>
+                  <span class="hint">Pay directly with Airtel Money</span>
+                </span>
+                <span class="badge-pref">Preferred</span>
+              </label>
+              <label class="pay-opt">
+                <input type="radio" name="method" value="mtn" />
+                <span class="logo mtn">MTN</span>
+                <span class="meta">
+                  <span class="name">MTN Mobile Money</span>
+                  <span class="hint">Pay directly with MTN MoMo</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="phone">Mobile money number</label>
+            <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 097 123 4567" required />
+            <div class="small muted mt-8">Your digital tickets will be linked to this number.</div>
+          </div>
+
+          <div class="total-line">
+            <span class="lbl">Total to pay</span>
+            <span class="amt" id="totalBig"><%= currency(settings.price) %></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="buyBtn">Buy tickets</button>
+          <% } %>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page no-print">Powered by Event Tickets &middot; Safe mobile-money payments</footer>
+
+  <script>
+    const priceEl = (function () {
+      return <%= Number(settings.price) %>;
+    })();
+    const qtyEl = document.getElementById('qty');
+    const totalPrice = document.getElementById('totalPrice');
+    const totalBig = document.getElementById('totalBig');
+
+    function fmt(n) {
+      return '<%= settings.currency %> ' + n.toLocaleString('en-US');
+    }
+
+    function upd() {
+      const q = parseInt(qtyEl.value, 10) || 1;
+      const total = q * priceEl;
+      totalPrice.textContent = fmt(total);
+      totalBig.textContent = fmt(total);
+    }
+
+    qtyEl.addEventListener('change', upd);
+    upd();
+  </script>
+</body>
+</html>

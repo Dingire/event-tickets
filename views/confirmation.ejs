@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment successful — <%= settings.eventName %></title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="brand">&#x1F3C6; <%= settings.eventName %></div>
+    <a href="/">Back to event page</a>
+  </div>
+
+  <div class="conf-shell">
+    <div class="conf-head">
+      <h1>&#x2705; Payment successful!</h1>
+      <p>Your digital tickets are ready below. Present the QR codes at the entrance for scanning.</p>
+    </div>
+
+    <div class="dig-ticket card">
+      <div class="row"><span class="k">Event</span><span class="v"><%= settings.eventName %></span></div>
+      <div class="row"><span class="k">Date</span><span class="v"><%= toDateLabel %>, <%= toTimeLabel %></span></div>
+      <div class="row"><span class="k">Venue</span><span class="v"><%= settings.venue %></span></div>
+      <div class="row"><span class="k">Tickets purchased</span><span class="v"><%= item.order.qty %></span></div>
+      <div class="row"><span class="k">Amount paid</span><span class="v"><%= currency(item.order.amount) %></span></div>
+      <div class="row"><span class="k">Payment method</span><span class="v"><%= methods[item.order.method].name %></span></div>
+      <div class="row"><span class="k">Booking number</span><span class="v ref"><%= item.order.booking_ref %></span></div>
+    </div>
+
+    <h2 class="mt-24" style="margin-left:4px">Your tickets</h2>
+    <div class="qr-grid">
+      <% qrs.forEach(function (qr) { %>
+        <div class="qr-card">
+          <img src="<%= qr.dataUrl %>" alt="Ticket QR code" />
+          <div class="code"><%= qr.code %></div>
+        </div>
+      <% }); %>
+    </div>
+
+    <div class="hint-note">
+      <strong>Keep this page safe.</strong> Save or screenshot these QR codes now. Each code is valid for one entry only
+      and cannot be re-used. You can also reopen it later with your booking number:
+      <strong class="ref"><a href="/ticket/<%= item.order.booking_ref %>">/ticket/<%= item.order.booking_ref %></a></strong>
+    </div>
+
+    <div class="mt-24 no-print" style="text-align:center">
+      <button class="btn btn-primary" onclick="window.print()">&#128424; Print / save tickets</button>
+    </div>
+  </div>
+
+  <footer class="page no-print">Powered by Event Tickets</footer>
+</body>
+</html>

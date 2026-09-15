@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organizer Login</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="pay-shell limited">
+    <div class="pay-brand airtel" style="border-radius:14px">
+      <div class="tag">Organizer access</div>
+      <h1>Admin login</h1>
+    </div>
+    <div class="pay-body" style="border-radius:0 0 14px 14px;border-top:0">
+      <% if (typeof error !== 'undefined' && error) { %><div class="alert error"><%= error %></div><% } %>
+      <form method="post" action="/admin/login">
+        <div class="field">
+          <label for="password">Organizer password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Log in</button>
+      </form>
+      <p class="center small mt-16"><a href="/">&#8592; Back to event page</a></p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Payment — <%= item ? methods[item.order.method].name : 'Payment' %></title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body style="background:#1a1136">
+  <div class="pay-shell">
+    <% if (!item) { %>
+      <div class="pay-body" style="border-radius:14px;border-top:1px solid #e4e6f0">
+        <p><% if (error) { %><%= error %><% } %></p>
+        <p class="mt-8"><a href="/">&#8592; Back to event</a></p>
+      </div>
+    <% } else {
+         const m = methods[item.order.method];
+         const amt = Number(item.order.amount);
+    %>
+      <div class="pay-brand <%= m.brand %>">
+        <div class="tag">Secure checkout &middot; <%= m.name %></div>
+        <h1>Confirm your payment</h1>
+      </div>
+
+      <form class="pay-body" action="/pay/<%= item.order.id %>" method="post">
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+
+        <div class="summary">
+          <div class="row"><span>Event</span><strong><%= settings.eventName %></strong></div>
+          <div class="row"><span>Date</span><span><%= toDateLabel %></span></div>
+          <div class="row"><span>Tickets</span><span><%= item.order.qty %></span></div>
+          <div class="row"><span>Booking reference</span><span class="ref"><%= item.order.booking_ref %></span></div>
+          <div class="row total"><span>Amount payable</span><span><%= currency(amt) %></span></div>
+        </div>
+
+        <div class="field">
+          <label for="phone">Your <%= m.name %> mobile number</label>
+          <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 097 123 4567"
+                 value="<%= item.order.phone %>" required />
+        </div>
+
+        <div class="field">
+          <label for="pin">Enter your <%= m.name %> PIN</label>
+          <input id="pin" name="pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+                 placeholder="4-digit PIN" autocomplete="off" required />
+          <div class="small muted mt-8">This PIN is sent to the <%= m.name %> network for authorisation. It is never saved by our website.</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Pay <%= currency(amt) %></button>
+
+        <p class="center small mt-16">
+          <a href="/pay/<%= item.order.id %>/cancel">Cancel booking</a>
+        </p>
+
+        <div class="pay-note">
+          <strong>Demo mode:</strong> this is a sandbox payment page. Any 4-digit PIN will complete the purchase —
+          no real money is moved. Your PIN is never collected or stored by this site.
+        </div>
+      </form>
+    <% } %>
+  </div>
+</body>
+</html>

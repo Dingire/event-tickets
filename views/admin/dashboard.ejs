@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — <%= settings.eventName %></title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="brand">&#x1F3C6; <%= settings.eventName %> — Admin</div>
+    <a href="/" target="_blank">View event page &#8599;</a>
+  </div>
+
+  <div class="admin-shell">
+    <div class="admin-nav no-print">
+      <a href="/admin" class="active">Dashboard</a>
+      <a href="/admin/verify">Verify tickets</a>
+      <a href="/admin/settings">Event settings</a>
+      <span class="spacer"></span>
+      <form method="post" action="/admin/logout" class="inline">
+        <button type="submit">Log out</button>
+      </form>
+    </div>
+
+    <% if (flash) { %><div class="alert <%= flash.type %>"><%= flash.msg %></div><% } %>
+
+    <div class="stats">
+      <div class="stat"><div class="n"><%= sold %></div><div class="l">Tickets sold</div></div>
+      <div class="stat"><div class="n"><%= remaining %></div><div class="l">Tickets remaining</div></div>
+      <div class="stat"><div class="n"><%= currency(revenue) %></div><div class="l">Money collected</div></div>
+      <div class="stat"><div class="n"><%= reserved %></div><div class="l">Pending payments</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Orders &amp; payments</h2>
+      <% if (orders.length === 0) { %>
+        <p class="muted">No orders yet. Share the event link to start selling tickets.</p>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Booking</th>
+                <th>Phone</th>
+                <th>Method</th>
+                <th>Qty</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% orders.forEach(function (o) { %>
+                <tr>
+                  <td class="ref"><a href="/ticket/<%= o.booking_ref %>"><%= o.booking_ref %></a></td>
+                  <td><%= o.phone %></td>
+                  <td><%= methods[o.method] ? methods[o.method].name : o.method %></td>
+                  <td><%= o.qty %></td>
+                  <td><%= currency(o.amount) %></td>
+                  <td><span class="pill <%= o.status %>"><%= o.status %></span></td>
+                  <td><%= fmtWhen(o.created_at) %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="panel">
+      <h2>All tickets</h2>
+      <% if (tickets.length === 0) { %>
+        <p class="muted">No tickets issued yet.</p>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Ticket code</th>
+                <th>Booking</th>
+                <th>Status</th>
+                <th style="text-align:right">Used at / entered</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% tickets.forEach(function (t) { %>
+                <tr>
+                  <td class="ref"><%= t.code %></td>
+                  <td class="ref"><%= orders.find(function (o) { return o.id === t.order_id; }) ? orders.find(function (o) { return o.id === t.order_id; }).booking_ref : '—' %></td>
+                  <td><span class="pill <%= t.status %>"><%= t.status %></span></td>
+                  <td style="text-align:right"><%= t.used_at ? fmtWhen(t.used_at) : '—' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

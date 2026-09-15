@@ -1,0 +1,19 @@
+{
+  "name": "event-tickets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Event ticket website with mobile-money checkout and QR ticket verification",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.4"
+  }
+}

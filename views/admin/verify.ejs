@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify Tickets — Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="brand">&#x1F3C6; <%= settings.eventName %> — Admin</div>
+    <a href="/" target="_blank">View event page &#8599;</a>
+  </div>
+
+  <div class="admin-shell limited">
+    <div class="admin-nav no-print">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/verify" class="active">Verify tickets</a>
+      <a href="/admin/settings">Event settings</a>
+      <span class="spacer"></span>
+      <form method="post" action="/admin/logout" class="inline">
+        <button type="submit">Log out</button>
+      </form>
+    </div>
+
+    <% if (flash) { %><div class="alert <%= flash.type %>"><%= flash.msg %></div><% } %>
+
+    <div class="panel">
+      <h2>Scan a ticket QR code</h2>
+      <p class="muted small">Scan the QR code from the customer's phone, or type/paste the ticket code below.</p>
+
+      <form method="post" action="/admin/verify" id="manualForm">
+        <div class="field">
+          <label for="code">Ticket code</label>
+          <input id="code" name="code" placeholder="ET-XXXXXXXXXX" autocomplete="off" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Check ticket</button>
+      </form>
+
+      <div class="scanner-box no-print" id="scannerBox">
+        <div id="reader"></div>
+      </div>
+      <div class="mt-16 no-print">
+        <button type="button" class="btn btn-ghost" id="startScan">Start camera scanner</button>
+      </div>
+    </div>
+
+    <% if (typeof result !== 'undefined' && result !== null) { %>
+      <% if (!result.found) { %>
+        <div class="verify-result bad">
+          <h3>&#10060; Ticket not found</h3>
+          <p class="muted">No ticket matches this code. Check the code and try again — the customer may be showing a fake or different ticket.</p>
+        </div>
+      <% } else if (result.order.status !== 'paid') { %>
+        <div class="verify-result bad">
+          <h3>&#10060; Ticket invalid</h3>
+          <p>This ticket belongs to a booking that was not completed (status: <span class="pill <%= result.order.status %>"><%= result.order.status %></span>).</p>
+        </div>
+      <% } else if (result.ticket.status === 'used') { %>
+        <div class="verify-result used">
+          <h3>&#9888;&#65039; Ticket already used</h3>
+          <p>This ticket was already scanned on <strong><%= fmtWhen(result.ticket.used_at) %></strong>. One ticket = one entry, so this person cannot re-enter with it.</p>
+          <p class="small">Ticket <span class="ref"><%= result.ticket.code %></span> &middot; Booking <span class="ref"><%= result.order.booking_ref %></span></p>
+        </div>
+      <% } else { %>
+        <div class="verify-result ok">
+          <h3>&#9989; Ticket valid</h3>
+          <p>This is a genuine, unused ticket. Person can enter.</p>
+          <table class="tbl mt-8">
+            <tbody>
+              <tr><td><strong>Ticket code</strong></td><td class="ref"><%= result.ticket.code %></td></tr>
+              <tr><td><strong>Booking</strong></td><td class="ref"><%= result.order.booking_ref %></td></tr>
+              <tr><td><strong>Event</strong></td><td><%= settings.eventName %></td></tr>
+              <tr><td><strong>Payment</strong></td><td><%= methods[result.order.method].name %> &middot; <%= currency(result.order.amount) %></td></tr>
+              <tr><td><strong>Phone</strong></td><td><%= result.order.phone %></td></tr>
+              <tr><td><strong>Ticket in booking</strong></td><td><%= result.ticketIndex %> of <%= result.order.qty %></td></tr>
+            </tbody>
+          </table>
+          <form method="post" action="/admin/verify/use/<%= result.ticket.id %>" class="mt-16 inline">
+            <input type="hidden" name="code" value="<%= result.ticket.code %>" />
+            <button type="submit" class="btn btn-green">Mark as used &amp; let them in</button>
+          </form>
+        </div>
+      <% } %>
+    <% } %>
+
+    <div class="panel">
+      <h2>How entry works</h2>
+      <p class="small muted">
+        Each QR code is unique to one ticket and can only be scanned once. Even if someone shares a screenshot,
+        the first scan lets them in and the code is then marked "used" — so a shared ticket cannot be re-used for
+        multiple entries.
+      </p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    (function () {
+      var box = document.getElementById('scannerBox');
+      var btn = document.getElementById('startScan');
+      var reader = document.getElementById('reader');
+      var codeInput = document.getElementById('code');
+      var manualForm = document.getElementById('manualForm');
+      var html5Qr = null;
+      var scanning = false;
+
+      if (typeof Html5Qrcode === 'undefined') {
+        btn.style.display = 'none';
+        return;
+      }
+
+      function stopScan() {
+        if (html5Qr && scanning) {
+          scanning = false;
+          html5Qr.stop().catch(function () {});
+        }
+        box.classList.add('hidden');
+        btn.textContent = 'Start camera scanner';
+      }
+
+      btn.addEventListener('click', function () {
+        if (scanning) {
+          stopScan();
+          return;
+        }
+        html5Qr = html5Qr || new Html5Qrcode('reader');
+        html5Qr.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          function (decoded) {
+            stopScan();
+            codeInput.value = decoded;
+            manualForm.submit();
+          },
+          function () {}
+        ).then(function () {
+          scanning = true;
+          box.classList.remove('hidden');
+          btn.textContent = 'Stop camera scanner';
+        }).catch(function (err) {
+          alert('Could not start camera: ' + err);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

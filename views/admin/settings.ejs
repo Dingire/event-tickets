@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Settings — Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="brand">&#x1F3C6; <%= settings.eventName %> — Admin</div>
+    <a href="/" target="_blank">View event page &#8599;</a>
+  </div>
+
+  <div class="admin-shell">
+    <div class="admin-nav no-print">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/verify">Verify tickets</a>
+      <a href="/admin/settings" class="active">Event settings</a>
+      <span class="spacer"></span>
+      <form method="post" action="/admin/logout" class="inline">
+        <button type="submit">Log out</button>
+      </form>
+    </div>
+
+    <% if (flash) { %><div class="alert <%= flash.type %>"><%= flash.msg %></div><% } %>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Event details</h2>
+        <form method="post" action="/admin/settings" class="setting-form">
+          <div class="field">
+            <label for="eventName">Event name</label>
+            <input id="eventName" name="eventName" value="<%= settings.eventName %>" required />
+          </div>
+          <div class="grid-2" style="gap:12px">
+            <div class="field">
+              <label for="eventDate">Date</label>
+              <input id="eventDate" name="eventDate" type="date" value="<%= settings.eventDate %>" required />
+            </div>
+            <div class="field">
+              <label for="eventTime">Time</label>
+              <input id="eventTime" name="eventTime" type="time" value="<%= settings.eventTime %>" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="venue">Venue</label>
+            <input id="venue" name="venue" value="<%= settings.venue %>" />
+          </div>
+          <div class="field">
+            <label for="description">Short description</label>
+            <textarea id="description" name="description" rows="4"><%= settings.description %></textarea>
+          </div>
+          <div class="grid-2" style="gap:12px">
+            <div class="field">
+              <label for="price">Ticket price</label>
+              <input id="price" name="price" type="number" min="0" value="<%= settings.price %>" />
+            </div>
+            <div class="field">
+              <label for="currency">Currency symbol</label>
+              <input id="currency" name="currency" maxlength="4" value="<%= settings.currency %>" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="totalTickets">Total tickets available</label>
+            <input id="totalTickets" name="totalTickets" type="number" min="1" value="<%= settings.totalTickets %>" />
+          </div>
+          <button type="submit" class="btn btn-primary">Save event details</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Banner photo</h2>
+        <form method="post" action="/admin/banner" enctype="multipart/form-data">
+          <div class="banner-preview">
+            <% if (settings.banner) { %>
+              <img src="/uploads/<%= settings.banner %>" alt="Current banner" />
+            <% } else { %>
+              <div class="none">No banner uploaded yet</div>
+            <% } %>
+          </div>
+          <div class="field mt-16">
+            <label for="banner">Upload a new banner photo</label>
+            <input id="banner" name="banner" type="file" accept="image/png,image/jpeg,image/gif,image/webp" required />
+          </div>
+          <button type="submit" class="btn btn-primary">Upload banner</button>
+        </form>
+        <p class="small muted mt-16">
+          Tip: use a wide photo (e.g. 1600 &times; 600) for the best look at the top of the event page.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
