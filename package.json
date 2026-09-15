@@ -4,6 +4,9 @@
   "private": true,
   "description": "Event ticket website with mobile-money checkout and QR ticket verification",
   "main": "server.js",
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
