@@ -3,7 +3,11 @@ builder = "NIXPACKS"
 
 [deploy]
 startCommand = "npm start"
-healthcheckPath = "/"
-healthcheckTimeout = 300
+# /health answers from memory only. Using "/" here meant a contended database write
+# could report the server unhealthy and get it restarted mid-request.
+healthcheckPath = "/health"
+healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+# Space the retries out so a failing boot cannot burn all ten attempts in seconds.
+restartPolicyDelay = 10

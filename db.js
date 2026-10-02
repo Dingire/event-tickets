@@ -9,6 +9,14 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new DatabaseSync(DB_PATH);
 
+// Without these two pragmas SQLite fails a write the instant another one is in progress
+// instead of waiting for it. On Railway that surfaced as the healthcheck hitting `/`,
+// colliding with the background reconciler, returning 500 and getting the process
+// SIGTERM'd and restarted. WAL lets readers work while a writer holds the lock, and the
+// timeout makes the handful of writers queue instead of erroring.
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA busy_timeout = 5000');
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,

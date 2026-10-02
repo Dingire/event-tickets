@@ -119,6 +119,15 @@ function toTime(t) {
   return `${hh}:${String(m || 0).padStart(2, '0')} ${period}`;
 }
 
+/**
+ * Deliberately does no database work and renders nothing. Railway probes this to decide
+ * whether the process is alive; pointing it at `/` meant a slow or contended query could
+ * answer "unhealthy" and get a perfectly good server killed and restarted.
+ */
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: Math.round(process.uptime()) });
+});
+
 app.get('/', (req, res) => {
   store.expireStalePending(RESERVATION_MINUTES);
   const options = store.getSettings();
@@ -810,7 +819,7 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something went wrong. Please try again.');
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Event ticket site running at http://localhost:${PORT}`);
   console.log(`Data directory: ${store.dataDir}`);
   console.log(`Payment gateway: ${payments.displayName}`);
@@ -839,3 +848,21 @@ app.listen(PORT, () => {
   }, RECONCILE_INTERVAL_MS);
   timer.unref();
 });
+
+/**
+ * Railway sends SIGTERM before every redeploy and whenever it stops the service. Node's
+ * default is to die instantly, which cuts off any request mid-response and leaves no
+ * trace in the log - so a routine deploy is indistinguishable from a crash. Closing the
+ * listener drains what is in flight and makes the reason visible in the log.
+ */
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    console.log(`${signal} received - stopping gracefully.`);
+    server.close(() => process.exit(0));
+    // A socket that never drains must not hold the deploy open.
+    setTimeout(() => {
+      console.error(`${signal} shutdown timed out - forcing exit.`);
+      process.exit(0);
+    }, 10000).unref();
+  });
+}
