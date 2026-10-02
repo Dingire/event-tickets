@@ -90,21 +90,39 @@
                   <span class="hint">Pay directly with MTN MoMo</span>
                 </span>
               </label>
+              <label class="pay-opt">
+                <input type="radio" name="method" value="zamtel" />
+                <span class="logo zamtel">ZAMTEL</span>
+                <span class="meta">
+                  <span class="name">Zamtel Kwacha</span>
+                  <span class="hint">Pay directly with Zamtel Kwacha</span>
+                </span>
+              </label>
             </div>
           </div>
 
           <div class="field">
             <label for="phone">Mobile money number</label>
             <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 097 123 4567" required />
-            <div class="small muted mt-8">Your digital tickets will be linked to this number.</div>
+            <div class="small muted mt-8">We send a payment request to this number for you to approve.</div>
           </div>
+
+          <div class="field">
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" inputmode="email" placeholder="you@example.com" required />
+            <div class="small muted mt-8">Your payment receipt is sent here.</div>
+          </div>
+
+          <% if (!paymentsReady) { %>
+            <div class="alert error">Online payment is temporarily unavailable. Please try again later.</div>
+          <% } %>
 
           <div class="total-line">
             <span class="lbl">Total to pay</span>
             <span class="amt" id="totalBig"><%= currency(settings.price) %></span>
           </div>
 
-          <button type="submit" class="btn btn-primary" id="buyBtn">Buy tickets</button>
+          <button type="submit" class="btn btn-primary" id="buyBtn" <%= paymentsReady ? '' : 'disabled' %>>Buy tickets</button>
           <% } %>
         </form>
       </div>

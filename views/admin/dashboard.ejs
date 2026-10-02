@@ -25,11 +25,144 @@
 
     <% if (flash) { %><div class="alert <%= flash.type %>"><%= flash.msg %></div><% } %>
 
+    <% if (customerBearing > 0) { %>
+      <div class="alert error">
+        <strong>Customers are paying extra.</strong>
+        <%= customerBearing %> order(s) were charged more than the advertised price, which means
+        <%= providerName %> is charging the <em>customer</em> rather than you. Check the
+        &ldquo;customer bears the charge&rdquo; setting in your <%= providerName %> dashboard.
+      </div>
+    <% } %>
+
     <div class="stats">
       <div class="stat"><div class="n"><%= sold %></div><div class="l">Tickets sold</div></div>
       <div class="stat"><div class="n"><%= remaining %></div><div class="l">Tickets remaining</div></div>
-      <div class="stat"><div class="n"><%= currency(revenue) %></div><div class="l">Money collected</div></div>
+      <div class="stat"><div class="n"><%= currency(revenue) %></div><div class="l">Money collected (gross)</div></div>
+      <div class="stat"><div class="n"><%= currency(fees) %></div><div class="l">Provider fees</div></div>
+      <div class="stat"><div class="n"><%= currency(net) %></div><div class="l">Net after fees</div></div>
       <div class="stat"><div class="n"><%= reserved %></div><div class="l">Pending payments</div></div>
+    </div>
+
+    <div class="panel" id="payouts">
+      <h2>Money out</h2>
+
+      <div class="stats">
+        <div class="stat"><div class="n"><%= currency(net) %></div><div class="l">Collected net of fees</div></div>
+        <div class="stat"><div class="n"><%= currency(paidOut) %></div><div class="l">Paid out</div></div>
+        <div class="stat"><div class="n"><%= currency(netAfterPayouts) %></div><div class="l">Still to withdraw</div></div>
+        <% if (balance) { %>
+          <div class="stat">
+            <div class="n"><%= currency(balance.available) %></div>
+            <div class="l">In your <%= providerName %> account</div>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (!payoutConfigured) { %>
+        <p class="muted">Payouts are unavailable until <code><%= providerSecretKey %></code> is set.</p>
+      <% } %>
+
+      <h3>Send a payout</h3>
+      <% if (beneficiaries.length === 0) { %>
+        <p class="muted">Add a payout destination below first. Sending money requires a saved beneficiary.</p>
+      <% } else { %>
+        <form method="post" action="/admin/payouts" class="payout-form">
+          <label>
+            Destination
+            <select name="beneficiaryId" required>
+              <% beneficiaries.forEach(function (b) { %>
+                <option value="<%= b.id %>" <%= b.is_default ? 'selected' : '' %>>
+                  <%= b.label %><%= b.is_default ? ' (default)' : '' %> &mdash; <%= b.beneficiary_name %> / <%= b.account_bank %>
+                </option>
+              <% }); %>
+            </select>
+          </label>
+          <label>
+            Amount (ZMW)
+            <input type="number" name="amount" min="0.01" step="0.01" required
+                   max="<%= Math.max(0, netAfterPayouts).toFixed(2) %>" />
+          </label>
+          <label>
+            Narration
+            <input type="text" name="narration" maxlength="140" placeholder="Event ticket sales" />
+          </label>
+          <label class="check">
+            <input type="checkbox" name="confirm" required />
+            I have checked the account number and I want to send this money now.
+          </label>
+          <button type="submit" class="danger">Send payout</button>
+          <p class="muted small">
+            This moves real money and cannot be undone from here.
+            Never more than <%= currency(netAfterPayouts) %> is available.
+          </p>
+        </form>
+      <% } %>
+
+      <h3>Payout destinations</h3>
+      <form method="post" action="/admin/beneficiaries" class="payout-form">
+        <label>Label<input type="text" name="label" maxlength="60" placeholder="Event account" required /></label>
+        <label>Bank<input type="text" name="accountBank" maxlength="20" placeholder="ZMB" required /></label>
+        <label>Account number<input type="text" name="accountNumber" inputmode="numeric" required /></label>
+        <label>Account name<input type="text" name="beneficiaryName" maxlength="120" required /></label>
+        <button type="submit">Save destination</button>
+      </form>
+
+      <% if (beneficiaries.length > 0) { %>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead>
+              <tr><th>Label</th><th>Account name</th><th>Bank</th><th>Account number</th><th class="no-print">Actions</th></tr>
+            </thead>
+            <tbody>
+              <% beneficiaries.forEach(function (b) { %>
+                <tr>
+                  <td><%= b.label %><%= b.is_default ? ' <span class="pill paid">default</span>' : '' %></td>
+                  <td><%= b.beneficiary_name %></td>
+                  <td><%= b.account_bank %></td>
+                  <td class="ref"><%= b.account_number %></td>
+                  <td class="no-print">
+                    <% if (!b.is_default) { %>
+                      <form method="post" action="/admin/beneficiaries/<%= b.id %>/default" class="inline">
+                        <button type="submit">Make default</button>
+                      </form>
+                    <% } %>
+                    <form method="post" action="/admin/beneficiaries/<%= b.id %>/delete" class="inline"
+                          onsubmit="return confirm('Remove this payout destination?');">
+                      <button type="submit">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+
+      <h3>Payout history</h3>
+      <% if (payouts.length === 0) { %>
+        <p class="muted">No payouts yet.</p>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead>
+              <tr><th>Reference</th><th>Destination</th><th style="text-align:right">Amount</th><th>Status</th><th>Detail</th><th>Sent</th></tr>
+            </thead>
+            <tbody>
+              <% payouts.forEach(function (p) {
+                   const b = beneficiaries.find(function (x) { return x.id === p.beneficiary_id; }); %>
+                <tr>
+                  <td class="ref"><%= p.reference %></td>
+                  <td><%= b ? b.label : 'removed destination' %></td>
+                  <td style="text-align:right"><%= currency(p.amount) %></td>
+                  <td><span class="pill <%= p.status === 'completed' ? 'paid' : p.status === 'failed' ? 'cancelled' : 'pending' %>"><%= p.status %></span></td>
+                  <td><%= p.complete_message || '—' %></td>
+                  <td><%= fmtWhen(p.created_at) %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
     </div>
 
     <div class="panel">
@@ -46,6 +179,9 @@
                 <th>Method</th>
                 <th>Qty</th>
                 <th>Amount</th>
+                <th>Customer charged</th>
+                <th>Fees</th>
+                <th>Net</th>
                 <th>Status</th>
                 <th>Created</th>
               </tr>
@@ -58,6 +194,21 @@
                   <td><%= methods[o.method] ? methods[o.method].name : o.method %></td>
                   <td><%= o.qty %></td>
                   <td><%= currency(o.amount) %></td>
+                  <td>
+                    <% if (o.charged_amount === null) { %>
+                      &mdash;
+                    <% } else if (o.charged_amount > o.amount + 0.009) { %>
+                      <span class="overcharge"><%= currency(o.charged_amount) %></span>
+                    <% } else { %>
+                      <%= currency(o.charged_amount) %>
+                    <% } %>
+                  </td>
+                  <td><%= (o.app_fee || 0) + (o.merchant_fee || 0) > 0
+                          ? currency((o.app_fee || 0) + (o.merchant_fee || 0))
+                          : '—' %></td>
+                  <td><%= o.status === 'paid'
+                          ? currency(o.amount - (o.app_fee || 0) - (o.merchant_fee || 0))
+                          : '—' %></td>
                   <td><span class="pill <%= o.status %>"><%= o.status %></span></td>
                   <td><%= fmtWhen(o.created_at) %></td>
                 </tr>

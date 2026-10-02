@@ -16,48 +16,95 @@
     <% } else {
          const m = methods[item.order.method];
          const amt = Number(item.order.amount);
+         const orderId = item.order.id;
     %>
       <div class="pay-brand <%= m.brand %>">
         <div class="tag">Secure checkout &middot; <%= m.name %></div>
-        <h1>Confirm your payment</h1>
+        <h1><%= awaiting ? 'Confirming your payment' : 'Confirm your payment' %></h1>
       </div>
 
-      <form class="pay-body" action="/pay/<%= item.order.id %>" method="post">
+      <div class="pay-body">
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+        <% if (failure) { %><div class="alert error"><%= failure %></div><% } %>
 
         <div class="summary">
           <div class="row"><span>Event</span><strong><%= settings.eventName %></strong></div>
           <div class="row"><span>Date</span><span><%= toDateLabel %></span></div>
           <div class="row"><span>Tickets</span><span><%= item.order.qty %></span></div>
+          <div class="row"><span>Paying from</span><span><%= item.order.phone %></span></div>
+          <div class="row"><span>Receipt sent to</span><span><%= item.order.email %></span></div>
           <div class="row"><span>Booking reference</span><span class="ref"><%= item.order.booking_ref %></span></div>
           <div class="row total"><span>Amount payable</span><span><%= currency(amt) %></span></div>
         </div>
 
-        <div class="field">
-          <label for="phone">Your <%= m.name %> mobile number</label>
-          <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 097 123 4567"
-                 value="<%= item.order.phone %>" required />
-        </div>
+        <% if (awaiting) { %>
+          <div class="pay-waiting" data-order="<%= orderId %>">
+            <div class="spinner" aria-hidden="true"></div>
+            <p><strong>Waiting for your approval.</strong></p>
+            <p class="small muted">
+              Approve the <%= currency(amt) %> payment on your <%= m.name %> phone.
+              This page updates on its own &mdash; you can leave it open in another tab.
+            </p>
+            <p class="small muted">
+              Already approved it? Press <strong>Check again</strong> below. Your tickets are
+              issued the moment the payment is confirmed, even if this page was closed.
+            </p>
+            <p class="small muted">
+              Your booking reference is <strong><%= item.order.booking_ref %></strong>.
+              Keep it: it is how we find your payment.
+            </p>
+          </div>
+          <p class="center small mt-16">
+            <a href="/pay/return/<%= orderId %>">Check again</a> &middot;
+            <a href="/ticket/<%= item.order.booking_ref %>">My tickets</a> &middot;
+            <a href="/">Back to event</a>
+          </p>
+        <% } else { %>
+          <form action="/pay/<%= orderId %>" method="post">
+            <button type="submit" class="btn btn-primary btn-block">
+              Pay <%= currency(amt) %> with <%= m.name %>
+            </button>
+          </form>
 
-        <div class="field">
-          <label for="pin">Enter your <%= m.name %> PIN</label>
-          <input id="pin" name="pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
-                 placeholder="4-digit PIN" autocomplete="off" required />
-          <div class="small muted mt-8">This PIN is sent to the <%= m.name %> network for authorisation. It is never saved by our website.</div>
-        </div>
+          <p class="center small mt-16">
+            <a href="/pay/<%= orderId %>/cancel">Cancel booking</a>
+          </p>
 
-        <button type="submit" class="btn btn-primary btn-block">Pay <%= currency(amt) %></button>
-
-        <p class="center small mt-16">
-          <a href="/pay/<%= item.order.id %>/cancel">Cancel booking</a>
-        </p>
-
-        <div class="pay-note">
-          <strong>Demo mode:</strong> this is a sandbox payment page. Any 4-digit PIN will complete the purchase —
-          no real money is moved. Your PIN is never collected or stored by this site.
-        </div>
-      </form>
+          <div class="pay-note">
+            <strong>How this works:</strong> the next screen hands you to <%= m.name %>.
+            You approve the payment on your own phone using your own PIN — this website
+            never asks for, sees or stores your PIN.
+          </div>
+        <% } %>
+      </div>
     <% } %>
   </div>
+
+  <% if (awaiting) { %>
+    <script>
+      (function () {
+        var orderId = document.querySelector('.pay-waiting').dataset.order;
+        var tries = 0;
+        var timer = setInterval(function () {
+          tries += 1;
+          fetch('/pay/return/' + orderId + '/status', { headers: { Accept: 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.state === 'paid') {
+                clearInterval(timer);
+                window.location = d.url;
+              } else if (d.state === 'failed' || d.state === 'cancelled') {
+                clearInterval(timer);
+                window.location.reload();
+              } else if (tries > 60) {
+                clearInterval(timer);
+                window.location = '/pay/return/' + orderId;
+              }
+            })
+            .catch(function () {});
+        }, 3000);
+      })();
+    </script>
+  <% } %>
 </body>
 </html>

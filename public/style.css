@@ -322,6 +322,42 @@ section.tickets {
   color: #000;
 }
 
+.pay-opt .logo.zamtel {
+  background: #0a4d8c;
+  color: #fff;
+}
+
+.pay-brand.zamtel {
+  background: #0a4d8c;
+}
+
+.pay-waiting {
+  text-align: center;
+  padding: 24px 8px 8px;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 16px;
+  border: 3px solid #e4e6f0;
+  border-top-color: #6c4bf4;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}
+
 .pay-opt .meta {
   flex: 1;
 }
@@ -887,4 +923,48 @@ form.inline {
     box-shadow: none;
     border: 1px solid #ddd;
   }
+}
+.payout-form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin-bottom: 1.5rem;
+}
+
+.payout-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.payout-form label.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+.payout-form input,
+.payout-form select {
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.payout-form button.danger {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+
+.muted.small {
+  font-size: 0.8rem;
+}
+
+.overcharge {
+  color: #b3261e;
+  font-weight: 700;
 }
