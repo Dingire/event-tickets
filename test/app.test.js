@@ -234,7 +234,12 @@ function startFakeElicate(state) {
           transaction_id: id,
           status: 'pending',
           reference: parsed.reference,
-          meta: { authorization: { mode: 'redirect', redirect_url: `http://127.0.0.1:${state.port}/fake-auth/${id}` } },
+          // Mirrors the live API: authorization is the string "redirect" and
+          // redirect_url sits beside it. The published docs nest it instead, so
+          // state.elicateNestedAuth switches to that shape for one test.
+          meta: state.elicateNestedAuth
+            ? { authorization: { mode: 'redirect', redirect_url: `http://127.0.0.1:${state.port}/fake-auth/${id}` } }
+            : { authorization: 'redirect', redirect_url: `http://127.0.0.1:${state.port}/fake-auth/${id}`, message: 'Test mode' },
         });
       }
 
@@ -1008,6 +1013,19 @@ test('Elicate is the default gateway and its charge uses the local phone format'
     assert.match(charge.redirect_url, /\/pay\/return\/\d+$/, 'a return URL is forwarded so the customer comes back');
 
     assert.ok(orderByRef(app.dataDir, ref).provider_tx_id, 'the Elicate transaction id is stored for verification');
+  } finally {
+    await app.stop();
+  }
+});
+
+test('an Elicate charge still starts when redirect_url is nested in meta.authorization', async () => {
+  // The docs and the live API disagree: the API sends meta.authorization as the string
+  // "redirect" with redirect_url beside it. Both shapes must work, because trusting the
+  // docs here is exactly what broke the real integration the first time.
+  const app = await startApp({ provider: 'elicate', state: { elicateNestedAuth: true } });
+  try {
+    const { orderId } = await buy(app, { phone: '0971234567', email: 'nested@example.com' });
+    assert.ok(orderId, 'checkout completed with the documented nested shape');
   } finally {
     await app.stop();
   }

@@ -22,7 +22,11 @@ const {
 
 const SECRET_KEY = String(process.env.ELICATE_SECRET_KEY || '').trim();
 const WEBHOOK_SECRET = String(process.env.ELICATE_WEBHOOK_SECRET || '').trim();
-const BASE_URL = (process.env.ELICATE_API_BASE || 'https://elicatepay.vercel.app/api/v1').replace(/\/+$/, '');
+// The published docs still name the old Vercel deployment, but its auth layer rejects
+// every key including valid ones with a generic "Missing or malformed Authorization
+// header". Verified against the live API: elicatepay.online answers correctly and the
+// vercel.app host does not, so the real domain is the default here.
+const BASE_URL = (process.env.ELICATE_API_BASE || 'https://elicatepay.online/api/v1').replace(/\/+$/, '');
 
 // Documented values are exactly MTN, AIRTEL, ZAMTEL in upper case.
 const NETWORKS = { mtn: 'MTN', airtel: 'AIRTEL', zamtel: 'ZAMTEL' };
@@ -112,17 +116,22 @@ async function charge({ amount, phone, method, email, txRef, name: customerName,
 
   const json = await request('/payments/charge', { method: 'POST', body });
 
-  const auth = json.meta && json.meta.authorization;
-  const redirect = auth && auth.redirect_url;
+  // The published docs nest this as meta.authorization.redirect_url, but the live API
+  // sends meta.authorization as the string "redirect" with redirect_url beside it.
+  // Accept both so a docs-compliant host or a future change still works.
+  const meta = json.meta || {};
+  const auth = meta.authorization;
+  const nested = auth && typeof auth === 'object' ? auth.redirect_url : null;
+  const redirect = nested || meta.redirect_url || null;
 
   // These field names are the single most likely thing to be wrong about a new
-  // gateway, so the shape is logged on every charge. "MISSING" here is the signal that
-  // the response needs its real field names substituted in above.
+  // gateway, so the shape is logged on every charge.
   console.log(
     `Elicate charge [${keyMode()}] ref=${body.reference}: ` +
       `top-level keys=[${Object.keys(json).join(',')}] ` +
       `transaction_id=${json.transaction_id == null ? 'MISSING' : json.transaction_id} ` +
-      `meta.authorization.redirect_url=${redirect ? 'present' : 'MISSING'} ` +
+      `redirect_url=${redirect ? (nested ? 'present (nested)' : 'present (meta)') : 'MISSING'} ` +
+      `status=${json.status || '-'} ` +
       `phone_sent=${maskPhone(body.phone)}`
   );
 
