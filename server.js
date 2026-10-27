@@ -10,6 +10,7 @@ const store = require('./db');
 const payments = require('./payments');
 const ratelimit = require('./ratelimit');
 const { SqliteStore } = require('./session-store');
+const mailer = require('./mailer');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -337,6 +338,8 @@ async function settleOrder(order) {
         appFee: result.appFee,
         merchantFee: result.merchantFee,
       });
+      // Fire and forget - never block the confirmation page because of email
+      mailer.sendTicketEmail(order.id).catch((err) => console.error('Ticket email dispatch failed:', err.message));
       if (order.charged_amount === null && result.chargedAmount !== null && result.chargedAmount > order.amount + 0.009) {
         console.warn(
           `Order ${order.booking_ref}: charged K${result.chargedAmount} for a K${order.amount} booking. ` +
@@ -418,7 +421,9 @@ async function handleChargeEvent(event) {
   // The webhook says so, but the provider is re-read before anything is issued, so a
   // forged or mis-routed delivery cannot create a ticket.
   const outcome = await settleOrder(order);
-  if (!outcome.paid) {
+  if (outcome.paid) {
+    mailer.sendTicketEmail(order.id).catch((err) => console.error('Ticket email dispatch failed:', err.message));
+  } else {
     console.error(`Webhook for ${order.booking_ref} could not be settled; leaving for the reconciler.`);
   }
 }
