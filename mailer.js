@@ -15,6 +15,12 @@ function isMailEnabled() {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 }
 
+if (isMailEnabled()) {
+  console.log(`Ticket emails enabled via Brevo SMTP (${SMTP_HOST}:${SMTP_PORT}) from ${MAIL_FROM}`);
+} else {
+  console.log('Ticket emails disabled - missing SMTP_HOST/SMTP_USER/SMTP_PASS in environment');
+}
+
 let transporter = null;
 
 function getTransporter() {

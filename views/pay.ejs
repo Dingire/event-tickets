@@ -43,11 +43,12 @@
             <p><strong>Waiting for your approval.</strong></p>
             <p class="small muted">
               Approve the <%= currency(amt) %> payment on your <%= m.name %> phone.
-              This page updates on its own &mdash; you can leave it open in another tab.
+              This page will check automatically and redirect you once payment is confirmed.
             </p>
             <p class="small muted">
-              Already approved it? Press <strong>Check again</strong> below. Your tickets are
-              issued the moment the payment is confirmed, even if this page was closed.
+              If you already approved it and got redirected away from this page, just click
+              <strong>Check again</strong> below. Your tickets are issued the moment payment
+              is confirmed, even if this page was closed.
             </p>
             <p class="small muted">
               Your booking reference is <strong><%= item.order.booking_ref %></strong>.
@@ -55,7 +56,7 @@
             </p>
           </div>
           <p class="center small mt-16">
-            <a href="/pay/return/<%= orderId %>">Check again</a> &middot;
+            <a href="/pay/return/<%= orderId %>">Check again now</a> &middot;
             <a href="/ticket/<%= item.order.booking_ref %>">My tickets</a> &middot;
             <a href="/">Back to event</a>
           </p>
@@ -93,10 +94,13 @@
               if (d.state === 'paid') {
                 clearInterval(timer);
                 window.location = d.url;
-              } else if (d.state === 'failed' || d.state === 'cancelled') {
+              } else if (d.state === 'failed') {
+                clearInterval(timer);
+                window.location = '/pay/return/' + orderId;
+              } else if (d.state === 'cancelled') {
                 clearInterval(timer);
                 window.location.reload();
-              } else if (tries > 60) {
+              } else if (tries > 80) {
                 clearInterval(timer);
                 window.location = '/pay/return/' + orderId;
               }
