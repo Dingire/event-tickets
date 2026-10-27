@@ -1,42 +1,19 @@
-const nodemailer = require('nodemailer');
 const QRCode = require('qrcode');
 const store = require('./db');
 const payments = require('./payments');
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-const SMTP_SECURE = String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true';
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
 const PUBLIC_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 
 function isMailEnabled() {
-  return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  return Boolean(BREVO_API_KEY && MAIL_FROM);
 }
 
 if (isMailEnabled()) {
-  console.log(`Ticket emails enabled via Brevo SMTP (${SMTP_HOST}:${SMTP_PORT}) from ${MAIL_FROM}`);
+  console.log(`Ticket emails enabled via Brevo API from ${MAIL_FROM}`);
 } else {
-  console.log('Ticket emails disabled - missing SMTP_HOST/SMTP_USER/SMTP_PASS in environment');
-}
-
-let transporter = null;
-
-function getTransporter() {
-  if (!isMailEnabled()) return null;
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_SECURE,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-    });
-  }
-  return transporter;
+  console.log('Ticket emails disabled - missing BREVO_API_KEY or MAIL_FROM in environment');
 }
 
 function currency(n) {
@@ -51,9 +28,19 @@ function toDateLabel(d) {
   return dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function parseMailFrom(value) {
+  if (!value) return { email: '', name: 'Tickets' };
+  const match = String(value).match(/^(?:"?([^"]*)"?\s*)?<?([^>]+)>?$/);
+  if (match) {
+    const name = (match[1] || '').trim() || 'Tickets';
+    const email = (match[2] || '').trim();
+    return { email, name };
+  }
+  return { email: String(value).trim(), name: 'Tickets' };
+}
+
 async function sendTicketEmail(orderId) {
-  const transport = getTransporter();
-  if (!transport) return;
+  if (!isMailEnabled()) return;
 
   try {
     const item = store.getOrderWithTickets(orderId);
@@ -79,6 +66,8 @@ async function sendTicketEmail(orderId) {
     const ticketList = tickets
       .map((t, i) => `Ticket ${i + 1} - Code: <strong>${t.code}</strong>`)
       .join('<br>');
+
+    const sender = parseMailFrom(MAIL_FROM);
 
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
@@ -138,13 +127,28 @@ ${tickets.map((t, i) => `- Ticket ${i + 1}: ${t.code}`).join('\n')}
 Show your QR code at the gate for entry.
     `.trim();
 
-    await transport.sendMail({
-      from: MAIL_FROM,
-      to: order.email,
-      subject: `Your ${eventName} tickets - ${order.booking_ref}`,
-      text,
-      html,
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': BREVO_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: sender.name, email: sender.email },
+        to: [{ email: order.email }],
+        subject: `Your ${eventName} tickets - ${order.booking_ref}`,
+        htmlContent: html,
+        textContent: text,
+      }),
     });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      console.error('Failed to send ticket email via Brevo API:', res.status, data);
+      return;
+    }
 
     try {
       store.raw.prepare("UPDATE orders SET ticket_email_sent_at = datetime('now') WHERE id = ?").run(orderId);
