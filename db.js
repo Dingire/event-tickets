@@ -88,6 +88,7 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing('orders', 'email', "TEXT NOT NULL DEFAULT ''");
 addColumnIfMissing('orders', 'provider_tx_id', 'TEXT');
 addColumnIfMissing('orders', 'provider_ref', 'TEXT');
+addColumnIfMissing('orders', 'ticket_email_sent_at', 'TEXT');
 addColumnIfMissing('payouts', 'provider', 'TEXT');
 addColumnIfMissing('payouts', 'provider_transfer_id', 'TEXT');
 
