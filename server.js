@@ -306,18 +306,23 @@ app.get('/pay/return/:id', async (req, res) => {
 });
 
 app.get('/pay/return/:id/status', async (req, res) => {
-  const order = store.getOrder(req.params.id);
-  if (!order) return res.status(404).json({ state: 'unknown' });
-  if (order.status === 'paid') return res.json({ state: 'paid', url: `/confirmation/${order.id}` });
-  if (order.status === 'cancelled') return res.json({ state: 'cancelled' });
+  try {
+    const order = store.getOrder(req.params.id);
+    if (!order) return res.status(404).json({ state: 'unknown' });
+    if (order.status === 'paid') return res.json({ state: 'paid', url: `/confirmation/${order.id}` });
+    if (order.status === 'cancelled') return res.json({ state: 'cancelled' });
 
-  const outcome = await settleOrder(order);
-  if (outcome.paid) return res.json({ state: 'paid', url: `/confirmation/${order.id}` });
-  if (outcome.reason) {
-    store.cancelOrder(order.id);
-    return res.json({ state: 'failed', reason: outcome.reason });
+    const outcome = await settleOrder(order);
+    if (outcome.paid) return res.json({ state: 'paid', url: `/confirmation/${order.id}` });
+    if (outcome.reason) {
+      store.cancelOrder(order.id);
+      return res.json({ state: 'failed', reason: outcome.reason });
+    }
+    return res.json({ state: 'processing' });
+  } catch (err) {
+    console.error('status endpoint error:', err.message, err.stack?.split('\n').slice(0,3).join(' | '));
+    return res.status(500).json({ state: 'error' });
   }
-  res.json({ state: 'processing' });
 });
 
 /**
