@@ -13,7 +13,7 @@ function isMailEnabled() {
 if (isMailEnabled()) {
   console.log(`Ticket emails enabled via Brevo API from ${MAIL_FROM}`);
 } else {
-  console.log('Ticket emails disabled - missing BREVO_API_KEY or MAIL_FROM in environment');
+  console.log(`Ticket emails disabled - missing BREVO_API_KEY or MAIL_FROM in environment. BREVO_API_KEY present: ${Boolean(BREVO_API_KEY)}, MAIL_FROM present: ${Boolean(MAIL_FROM)}`);
 }
 
 function currency(n) {
