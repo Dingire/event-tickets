@@ -30,10 +30,10 @@ function toDateLabel(d) {
 
 function parseMailFrom(value) {
   if (!value) return { email: '', name: 'Tickets' };
-  const match = String(value).match(/^(?:"?([^"]*)"?\s*)?<?([^>]+)>?$/);
+  const match = String(value).trim().match(/^(?:"([^"]+)"|([^<>]+))\s*<\s*([^<>]+)\s*>$/);
   if (match) {
-    const name = (match[1] || '').trim() || 'Tickets';
-    const email = (match[2] || '').trim();
+    const name = (match[1] || match[2] || '').trim() || 'Tickets';
+    const email = match[3].trim();
     return { email, name };
   }
   return { email: String(value).trim(), name: 'Tickets' };
@@ -178,4 +178,4 @@ Show your QR code at the gate for entry.
   }
 }
 
-module.exports = { sendTicketEmail, isMailEnabled };
+module.exports = { sendTicketEmail, isMailEnabled, parseMailFrom };
