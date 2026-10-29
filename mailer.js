@@ -4,10 +4,26 @@ const payments = require('./payments');
 
 const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY;
 const MAIL_FROM = process.env.MAIL_FROM;
-const PUBLIC_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 
 function isMailEnabled() {
   return Boolean(MAILERSEND_API_KEY && MAIL_FROM);
+}
+
+function getPublicBaseUrl(publicUrl = process.env.PUBLIC_URL, railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN) {
+  const candidates = [publicUrl, railwayPublicDomain && `https://${railwayPublicDomain}`];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    try {
+      const value = String(candidate).trim();
+      const url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) continue;
+      return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+    } catch {
+      continue;
+    }
+  }
+  return '';
 }
 
 if (isMailEnabled()) {
@@ -71,11 +87,20 @@ async function sendTicketEmail(orderId) {
     const venue = settings.venue || '';
     const time = settings.eventTime || '';
 
-    const ticketLink = PUBLIC_URL
-      ? `${PUBLIC_URL}/ticket/${order.booking_ref}`
-      : `/ticket/${order.booking_ref}`;
+    const publicBaseUrl = getPublicBaseUrl();
+    const ticketLink = publicBaseUrl
+      ? `${publicBaseUrl}/ticket/${encodeURIComponent(order.booking_ref)}`
+      : '';
+    if (!ticketLink) console.warn('Ticket email has no valid public site URL; omitting ticket link.');
 
-    const qrDataUrl = await QRCode.toDataURL(order.booking_ref, { width: 320, margin: 2 });
+    const ticketQrs = await Promise.all(tickets.map(async (ticket) => {
+      const qrBuffer = await QRCode.toBuffer(ticket.code, { width: 320, margin: 2 });
+      return {
+        ticket,
+        contentId: `ticket-qr-${ticket.code}`,
+        content: qrBuffer.toString('base64'),
+      };
+    }));
 
     const ticketList = tickets
       .map((t, i) => `Ticket ${i + 1} - Code: <strong>${t.code}</strong>`)
@@ -105,16 +130,17 @@ async function sendTicketEmail(orderId) {
             <p style="margin:5px 0;"><strong>Paid via:</strong> ${payments.displayName}</p>
           </div>
 
-          <p style="text-align:center;"><strong>Your Entry QR Code</strong></p>
-          <div style="text-align:center;margin:20px 0;">
-            <img src="${qrDataUrl}" alt="Booking QR Code" style="width:250px;height:250px;border:1px solid #ddd;padding:10px;background:#fff;" />
-          </div>
+          <p style="text-align:center;"><strong>Your Entry QR Code${ticketQrs.length === 1 ? '' : 's'}</strong></p>
+          ${ticketQrs.map(({ ticket, contentId }, index) => `<div style="text-align:center;margin:20px 0;">
+            <p><strong>Ticket ${index + 1} - ${ticket.code}</strong></p>
+            <img src="cid:${contentId}" alt="Ticket QR Code" style="width:250px;height:250px;border:1px solid #ddd;padding:10px;background:#fff;" />
+          </div>`).join('')}
 
           <p style="text-align:center;font-size:14px;color:#666;">Show this QR code at the gate for entry</p>
 
-          <div style="text-align:center;margin:30px 0;">
+          ${ticketLink ? `<div style="text-align:center;margin:30px 0;">
             <a href="${ticketLink}" style="background:#7c3aed;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;">View & Download Your Tickets</a>
-          </div>
+          </div>` : ''}
 
           <p style="font-size:14px;color:#666;"><strong>Your Ticket Codes:</strong><br>${ticketList}</p>
 
@@ -135,7 +161,7 @@ Booking Reference: ${order.booking_ref}
 Quantity: ${order.qty} ticket(s)
 Amount Paid: ${currency(order.charged_amount || order.amount)}
 
-View your tickets: ${ticketLink}
+${ticketLink ? `View your tickets: ${ticketLink}` : 'Your QR code is attached to this email.'}
 
 Ticket Codes:
 ${tickets.map((t, i) => `- Ticket ${i + 1}: ${t.code}`).join('\n')}
@@ -156,6 +182,19 @@ Show your QR code at the gate for entry.
         subject: `Your ${eventName} tickets - ${order.booking_ref}`,
         html,
         text,
+        attachments: ticketQrs.flatMap(({ ticket, content, contentId }) => [
+          {
+            content,
+            disposition: 'inline',
+            filename: `ticket-${ticket.code}-qr.png`,
+            id: contentId,
+          },
+          {
+            content,
+            disposition: 'attachment',
+            filename: `ticket-${ticket.code}-qr.png`,
+          },
+        ]),
       }),
     });
 
@@ -178,4 +217,4 @@ Show your QR code at the gate for entry.
   }
 }
 
-module.exports = { sendTicketEmail, isMailEnabled, parseMailFrom };
+module.exports = { sendTicketEmail, isMailEnabled, parseMailFrom, getPublicBaseUrl };
