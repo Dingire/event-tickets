@@ -209,7 +209,14 @@
                   <td><%= o.status === 'paid'
                           ? currency(o.amount - (o.app_fee || 0) - (o.merchant_fee || 0))
                           : '—' %></td>
-                  <td><span class="pill <%= o.status %>"><%= o.status %></span></td>
+                  <td>
+                    <span class="pill <%= o.status %>"><%= o.status %></span>
+                    <% if (o.status === 'paid') { %>
+                      <form method="post" action="/admin/orders/<%= o.id %>/resend-email" class="inline" style="margin-left:6px;" onsubmit="return confirm('Resend ticket email for <%= o.booking_ref %>?');">
+                        <button type="submit" class="small">Resend email</button>
+                      </form>
+                    <% } %>
+                  </td>
                   <td><%= fmtWhen(o.created_at) %></td>
                 </tr>
               <% }); %>

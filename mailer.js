@@ -40,16 +40,30 @@ function parseMailFrom(value) {
 }
 
 async function sendTicketEmail(orderId) {
-  if (!isMailEnabled()) return;
+  console.log(`Attempting to send ticket email for order ${orderId}`);
+  if (!isMailEnabled()) {
+    console.log('Email not enabled');
+    return;
+  }
 
   try {
     const item = store.getOrderWithTickets(orderId);
-    if (!item) return;
+    if (!item) {
+      console.log(`Order ${orderId} not found`);
+      return;
+    }
     const order = item.order;
     const tickets = item.tickets || [];
 
-    if (!order.email) return;
-    if (order.ticket_email_sent_at) return;
+    console.log(`Order ${order.booking_ref} status: ${order.status}, email: ${order.email}, sent: ${order.ticket_email_sent_at}`);
+    if (!order.email) {
+      console.log('No email on order');
+      return;
+    }
+    if (order.ticket_email_sent_at) {
+      console.log('Email already sent');
+      return;
+    }
 
     const settings = store.getSettings();
     const eventName = settings.eventName || 'Event';
