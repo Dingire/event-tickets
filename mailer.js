@@ -2,18 +2,18 @@ const QRCode = require('qrcode');
 const store = require('./db');
 const payments = require('./payments');
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM || process.env.RESEND_FROM;
 const PUBLIC_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 
 function isMailEnabled() {
-  return Boolean(BREVO_API_KEY && MAIL_FROM);
+  return Boolean(RESEND_API_KEY && MAIL_FROM);
 }
 
 if (isMailEnabled()) {
-  console.log(`Ticket emails enabled via Brevo API from ${MAIL_FROM}`);
+  console.log(`Ticket emails enabled via Resend API from ${MAIL_FROM}`);
 } else {
-  console.log(`Ticket emails disabled - missing BREVO_API_KEY or MAIL_FROM in environment. BREVO_API_KEY present: ${Boolean(BREVO_API_KEY)}, MAIL_FROM present: ${Boolean(MAIL_FROM)}`);
+  console.log(`Ticket emails disabled - missing RESEND_API_KEY or MAIL_FROM in environment. RESEND_API_KEY present: ${Boolean(RESEND_API_KEY)}, MAIL_FROM present: ${Boolean(MAIL_FROM)}`);
 }
 
 function currency(n) {
@@ -141,26 +141,25 @@ ${tickets.map((t, i) => `- Ticket ${i + 1}: ${t.code}`).join('\n')}
 Show your QR code at the gate for entry.
     `.trim();
 
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: sender.name, email: sender.email },
-        to: [{ email: order.email }],
+        from: sender.name && sender.name !== 'Tickets' ? `${sender.name} <${sender.email}>` : sender.email,
+        to: [order.email],
         subject: `Your ${eventName} tickets - ${order.booking_ref}`,
-        htmlContent: html,
-        textContent: text,
+        html,
+        text,
       }),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      console.error('Failed to send ticket email via Brevo API:', res.status, data);
+      console.error('Failed to send ticket email via Resend API:', res.status, data);
       return;
     }
 
