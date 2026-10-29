@@ -288,7 +288,10 @@ app.post('/pay/:id', async (req, res) => {
 app.get('/pay/return/:id', async (req, res) => {
   const order = store.getOrder(req.params.id);
   if (!order || order.status === 'cancelled') return res.redirect('/');
-  if (order.status === 'paid') return res.redirect(`/confirmation/${order.id}`);
+  if (order.status === 'paid') {
+    mailer.sendTicketEmail(order.id).catch((err) => console.error('Ticket email dispatch failed:', err.message));
+    return res.redirect(`/confirmation/${order.id}`);
+  }
 
   const outcome = await settleOrder(order);
   if (outcome.paid) return res.redirect(`/confirmation/${order.id}`);
@@ -707,6 +710,16 @@ app.post('/admin/verify', requireAdmin, (req, res) => {
   if (!code) return res.redirect('/admin/verify');
   const ticket = store.getTicketByCode(code);
   res.render('admin/verify', { result: resolveTicket(ticket) });
+});
+
+app.post('/admin/orders/:id/resend-email', requireAdmin, async (req, res) => {
+  try {
+    await mailer.sendTicketEmail(req.params.id);
+    setFlash(req, 'Ticket email resend attempted. Check Railway logs and Brevo Transactional Logs.');
+  } catch (err) {
+    setFlash(req, `Failed to resend email: ${err.message}`, 'error');
+  }
+  res.redirect('/admin#orders');
 });
 
 app.post('/admin/verify/use/:ticketId', requireAdmin, (req, res) => {
