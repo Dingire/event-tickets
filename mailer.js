@@ -2,18 +2,18 @@ const QRCode = require('qrcode');
 const store = require('./db');
 const payments = require('./payments');
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM || process.env.RESEND_FROM;
+const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
 const PUBLIC_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 
 function isMailEnabled() {
-  return Boolean(RESEND_API_KEY && MAIL_FROM);
+  return Boolean(MAILERSEND_API_KEY && MAIL_FROM);
 }
 
 if (isMailEnabled()) {
-  console.log(`Ticket emails enabled via Resend API from ${MAIL_FROM}`);
+  console.log(`Ticket emails enabled via MailerSend API from ${MAIL_FROM}`);
 } else {
-  console.log(`Ticket emails disabled - missing RESEND_API_KEY or MAIL_FROM in environment. RESEND_API_KEY present: ${Boolean(RESEND_API_KEY)}, MAIL_FROM present: ${Boolean(MAIL_FROM)}`);
+  console.log(`Ticket emails disabled - missing MAILERSEND_API_KEY or MAIL_FROM in environment. MAILERSEND_API_KEY present: ${Boolean(MAILERSEND_API_KEY)}, MAIL_FROM present: ${Boolean(MAIL_FROM)}`);
 }
 
 function currency(n) {
@@ -81,8 +81,9 @@ async function sendTicketEmail(orderId) {
       .map((t, i) => `Ticket ${i + 1} - Code: <strong>${t.code}</strong>`)
       .join('<br>');
 
-    const sender = parseMailFrom(MAIL_FROM);
-    const from = (String(MAIL_FROM).trim().replace(/^['"]+|['"]+$/g, '')) || (sender.name && sender.email ? `${sender.name} <${sender.email}>` : sender.email);
+    const mf = parseMailFrom(MAIL_FROM);
+    const fromEmail = mf.email || 'noreply@mailersend.net';
+    const fromName = mf.name || 'Tickets';
 
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
@@ -142,15 +143,16 @@ ${tickets.map((t, i) => `- Ticket ${i + 1}: ${t.code}`).join('\n')}
 Show your QR code at the gate for entry.
     `.trim();
 
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.mailersend.com/v1/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Authorization': `Bearer ${MAILERSEND_API_KEY}`,
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
       },
       body: JSON.stringify({
-        from,
-        to: [order.email],
+        from: { email: fromEmail, name: fromName },
+        to: [{ email: order.email }],
         subject: `Your ${eventName} tickets - ${order.booking_ref}`,
         html,
         text,
@@ -160,7 +162,7 @@ Show your QR code at the gate for entry.
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      console.error('Failed to send ticket email via Resend API:', res.status, data);
+      console.error('Failed to send ticket email via MailerSend API:', res.status, data);
       return;
     }
 
