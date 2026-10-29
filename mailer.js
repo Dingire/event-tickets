@@ -82,6 +82,7 @@ async function sendTicketEmail(orderId) {
       .join('<br>');
 
     const sender = parseMailFrom(MAIL_FROM);
+    const from = (String(MAIL_FROM).trim().replace(/^['"]+|['"]+$/g, '')) || (sender.name && sender.email ? `${sender.name} <${sender.email}>` : sender.email);
 
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
@@ -148,7 +149,7 @@ Show your QR code at the gate for entry.
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: sender.name && sender.name !== 'Tickets' ? `${sender.name} <${sender.email}>` : sender.email,
+        from,
         to: [order.email],
         subject: `Your ${eventName} tickets - ${order.booking_ref}`,
         html,
