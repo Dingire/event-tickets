@@ -421,7 +421,10 @@ async function handleChargeEvent(event) {
     console.error(`${payments.displayName} webhook referenced unknown reference: ${event.reference}`);
     return;
   }
-  if (order.status === 'paid') return;
+  if (order.status === 'paid') {
+    mailer.sendTicketEmail(order.id).catch((err) => console.error('Ticket email dispatch failed:', err.message));
+    return;
+  }
 
   // The webhook says so, but the provider is re-read before anything is issued, so a
   // forged or mis-routed delivery cannot create a ticket.
