@@ -488,4 +488,31 @@ module.exports = {
   getPayoutsInFlight,
   markPayoutProcessing,
   markPayout,
+  wipeAllData,
+  wipeEverything,
 };
+
+/**
+ * Wipes all transactional data (orders, tickets, payouts, beneficiaries) and resets
+ * autoincrement counters. Keeps event settings intact so you can relaunch with the
+ * same event configuration.
+ */
+function wipeAllData() {
+  db.exec('DELETE FROM tickets');
+  db.exec('DELETE FROM orders');
+  db.exec('DELETE FROM payouts');
+  db.exec('DELETE FROM beneficiaries');
+  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('orders', 'tickets', 'payouts', 'beneficiaries')");
+}
+
+/**
+ * Wipes everything including event settings, then re-inserts defaults. Use this for
+ * a completely fresh start.
+ */
+function wipeEverything() {
+  wipeAllData();
+  db.exec('DELETE FROM settings');
+  for (const [k, v] of Object.entries(DEFAULTS)) {
+    setSetting(k, v);
+  }
+}

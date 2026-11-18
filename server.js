@@ -689,6 +689,30 @@ app.post('/admin/orders/:id/resend-email', requireAdmin, async (req, res) => {
   res.redirect('/admin#orders');
 });
 
+app.post('/admin/reset-data', requireAdmin, async (req, res) => {
+  const confirm = String(req.body.confirm || '');
+  const mode = String(req.body.mode || '');
+
+  // Require an explicit confirmation token to prevent accidental wipes.
+  if (confirm !== 'WIPE DATA') {
+    setFlash(req, 'Reset cancelled: you must type "WIPE DATA" to confirm.', 'error');
+    return res.redirect('/admin#orders');
+  }
+
+  try {
+    if (mode === 'everything') {
+      store.wipeEverything();
+      setFlash(req, 'All data has been wiped, including event settings. Settings have been reset to defaults.');
+    } else {
+      store.wipeAllData();
+      setFlash(req, 'All orders, tickets, payouts and beneficiaries have been cleared. Event settings are unchanged.');
+    }
+  } catch (err) {
+    setFlash(req, `Data reset failed: ${err.message}`, 'error');
+  }
+  res.redirect('/admin');
+});
+
 app.post('/admin/verify/use/:ticketId', requireAdmin, (req, res) => {
   const ticket = store.getTicketByCode(String(req.body.code || '').trim()) || { id: Number(req.params.ticketId) };
   const used = store.markTicketUsed(ticket.id, 'Admin');

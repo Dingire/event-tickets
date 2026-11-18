@@ -968,3 +968,38 @@ form.inline {
   color: #b3261e;
   font-weight: 700;
 }
+
+/* ------------- Danger zone ------------- */
+
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.15);
+}
+
+.danger-zone {
+  margin-top: 40px;
+  padding: 22px;
+  background: var(--red-soft);
+  border: 1px dashed var(--red);
+  border-radius: var(--radius);
+}
+
+.danger-zone h2 {
+  margin-top: 0;
+  color: #7f1d1d;
+  font-size: 18px;
+}
+
+.danger-zone .muted.small {
+  color: #7f1d1d;
+  font-size: 0.85rem;
+}
+
+.reset-form .field label {
+  color: #7f1d1d;
+  font-weight: 700;
+}

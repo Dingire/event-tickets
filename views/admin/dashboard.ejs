@@ -209,5 +209,33 @@
       <% } %>
     </div>
   </div>
+
+  <div class="panel danger-zone">
+    <h2>⚠️ Danger Zone</h2>
+    <p class="muted small">
+      This permanently deletes all orders, tickets, payouts and beneficiaries. This
+      cannot be undone. Only use this before your official launch to clear test data.
+    </p>
+    <form method="post" action="/admin/reset-data" class="reset-form" onsubmit="return confirmReset();">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <div class="field">
+        <label>Type <strong>WIPE DATA</strong> to confirm:</label>
+        <input type="text" name="confirm" placeholder="WIPE DATA" required />
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>
+          <input type="checkbox" name="mode" value="everything" />
+          Also reset event settings to defaults (completely fresh start)
+        </label>
+      </div>
+      <button type="submit" class="btn danger">Wipe All Data</button>
+    </form>
+  </div>
+
+  <script>
+    function confirmReset() {
+      return confirm('Are you absolutely sure? This will permanently delete all orders, tickets, payouts and beneficiaries. This cannot be undone.');
+    }
+  </script>
 </body>
 </html>
