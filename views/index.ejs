@@ -52,6 +52,7 @@
         </div>
 
         <form class="order-form card" action="/checkout" method="post">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <h2>Buy tickets</h2>
 
           <% if (remaining <= 0) { %>

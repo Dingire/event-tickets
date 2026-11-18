@@ -19,6 +19,7 @@
       <a href="/admin/settings">Event settings</a>
       <span class="spacer"></span>
       <form method="post" action="/admin/logout" class="inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <button type="submit">Log out</button>
       </form>
     </div>
@@ -59,59 +60,21 @@
       </div>
 
       <% if (!payoutConfigured) { %>
-        <p class="muted">Payouts are unavailable until <code><%= providerSecretKey %></code> is set.</p>
+        <p class="muted">Payouts are unavailable until the provider secret key is configured.</p>
       <% } %>
 
       <h3>Send a payout</h3>
-      <% if (beneficiaries.length === 0) { %>
-        <p class="muted">Add a payout destination below first. Sending money requires a saved beneficiary.</p>
-      <% } else { %>
-        <form method="post" action="/admin/payouts" class="payout-form">
-          <label>
-            Destination
-            <select name="beneficiaryId" required>
-              <% beneficiaries.forEach(function (b) { %>
-                <option value="<%= b.id %>" <%= b.is_default ? 'selected' : '' %>>
-                  <%= b.label %><%= b.is_default ? ' (default)' : '' %> &mdash; <%= b.beneficiary_name %> / <%= b.account_bank %>
-                </option>
-              <% }); %>
-            </select>
-          </label>
-          <label>
-            Amount (ZMW)
-            <input type="number" name="amount" min="0.01" step="0.01" required
-                   max="<%= Math.max(0, netAfterPayouts).toFixed(2) %>" />
-          </label>
-          <label>
-            Narration
-            <input type="text" name="narration" maxlength="140" placeholder="Event ticket sales" />
-          </label>
-          <label class="check">
-            <input type="checkbox" name="confirm" required />
-            I have checked the account number and I want to send this money now.
-          </label>
-          <button type="submit" class="danger">Send payout</button>
-          <p class="muted small">
-            This moves real money and cannot be undone from here.
-            Never more than <%= currency(netAfterPayouts) %> is available.
-          </p>
-        </form>
-      <% } %>
+      <p class="muted">Available to withdraw: <strong><%= currency(netAfterPayouts) %></strong></p>
+      <p class="alert error">Contact your administrator to initiate a payout.</p>
 
-      <h3>Payout destinations</h3>
-      <form method="post" action="/admin/beneficiaries" class="payout-form">
-        <label>Label<input type="text" name="label" maxlength="60" placeholder="Event account" required /></label>
-        <label>Bank<input type="text" name="accountBank" maxlength="20" placeholder="ZMB" required /></label>
-        <label>Account number<input type="text" name="accountNumber" inputmode="numeric" required /></label>
-        <label>Account name<input type="text" name="beneficiaryName" maxlength="120" required /></label>
-        <button type="submit">Save destination</button>
-      </form>
+      <h3>Saved payout destinations</h3>
+      <p class="muted">Contact your administrator to initiate a payout.</p>
 
       <% if (beneficiaries.length > 0) { %>
         <div style="overflow-x:auto">
           <table class="tbl">
             <thead>
-              <tr><th>Label</th><th>Account name</th><th>Bank</th><th>Account number</th><th class="no-print">Actions</th></tr>
+              <tr><th>Label</th><th>Account name</th><th>Bank</th><th>Account number</th></tr>
             </thead>
             <tbody>
               <% beneficiaries.forEach(function (b) { %>
@@ -120,17 +83,6 @@
                   <td><%= b.beneficiary_name %></td>
                   <td><%= b.account_bank %></td>
                   <td class="ref"><%= b.account_number %></td>
-                  <td class="no-print">
-                    <% if (!b.is_default) { %>
-                      <form method="post" action="/admin/beneficiaries/<%= b.id %>/default" class="inline">
-                        <button type="submit">Make default</button>
-                      </form>
-                    <% } %>
-                    <form method="post" action="/admin/beneficiaries/<%= b.id %>/delete" class="inline"
-                          onsubmit="return confirm('Remove this payout destination?');">
-                      <button type="submit">Remove</button>
-                    </form>
-                  </td>
                 </tr>
               <% }); %>
             </tbody>
@@ -213,6 +165,7 @@
                     <span class="pill <%= o.status %>"><%= o.status %></span>
                     <% if (o.status === 'paid') { %>
                       <form method="post" action="/admin/orders/<%= o.id %>/resend-email" class="inline" style="margin-left:6px;" onsubmit="return confirm('Resend ticket email for <%= o.booking_ref %>?');">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                         <button type="submit" class="small">Resend email</button>
                       </form>
                     <% } %>

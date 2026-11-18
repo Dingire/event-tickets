@@ -19,6 +19,7 @@
       <a href="/admin/settings" class="active">Event settings</a>
       <span class="spacer"></span>
       <form method="post" action="/admin/logout" class="inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <button type="submit">Log out</button>
       </form>
     </div>
@@ -29,6 +30,7 @@
       <div class="panel">
         <h2>Event details</h2>
         <form method="post" action="/admin/settings" class="setting-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <div class="field">
             <label for="eventName">Event name</label>
             <input id="eventName" name="eventName" value="<%= settings.eventName %>" required />
@@ -72,6 +74,7 @@
       <div class="panel">
         <h2>Banner photo</h2>
         <form method="post" action="/admin/banner" enctype="multipart/form-data">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <div class="banner-preview">
             <% if (settings.banner) { %>
               <img src="/uploads/<%= settings.banner %>" alt="Current banner" />

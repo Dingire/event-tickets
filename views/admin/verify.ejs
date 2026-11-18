@@ -19,6 +19,7 @@
       <a href="/admin/settings">Event settings</a>
       <span class="spacer"></span>
       <form method="post" action="/admin/logout" class="inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <button type="submit">Log out</button>
       </form>
     </div>
@@ -30,6 +31,7 @@
       <p class="muted small">Scan the QR code from the customer's phone, or type/paste the ticket code below.</p>
 
       <form method="post" action="/admin/verify" id="manualForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <div class="field">
           <label for="code">Ticket code</label>
           <input id="code" name="code" placeholder="ET-XXXXXXXXXX" autocomplete="off" required />
@@ -77,6 +79,7 @@
             </tbody>
           </table>
           <form method="post" action="/admin/verify/use/<%= result.ticket.id %>" class="mt-16 inline">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <input type="hidden" name="code" value="<%= result.ticket.code %>" />
             <button type="submit" class="btn btn-green">Mark as used &amp; let them in</button>
           </form>

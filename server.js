@@ -13,8 +13,14 @@ const { SqliteStore } = require('./session-store');
 const mailer = require('./mailer');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = Number(process.env.PORT) || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSWORD) {
+  console.error('FATAL: ADMIN_PASSWORD must be set explicitly in production. Refusing to start.');
+  process.exit(1);
+}
 const RESERVATION_MINUTES = 15;
 const PAYMENT_WINDOW_MINUTES = Number(process.env.PAYMENT_WINDOW_MINUTES) || 120;
 const RECONCILE_INTERVAL_MS = 60 * 1000;
@@ -41,13 +47,39 @@ app.use(
 );
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+/**
+ * Security headers applied to every response.
+ * CSP allows our own scripts/styles plus data: for QR code images.
+ */
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.set(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://unpkg.com; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self'; " +
+    "frame-ancestors 'none';"
+  );
+  next();
+});
 app.use(
   session({
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     store: new SqliteStore(store.raw),
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 },
+    name: 'evt_session',
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 8 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -56,6 +88,17 @@ const METHODS = {
   mtn: { id: 'mtn', name: 'MTN Mobile Money', brand: 'mtn', preferred: false },
   zamtel: { id: 'zamtel', name: 'Zamtel Kwacha', brand: 'zamtel', preferred: false },
 };
+
+// Make CSRF token available to all templates
+app.use(requireCsrfForm);
+
+// CSRF protection for state-changing requests
+app.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+    return csrfCheck(req, res, next);
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const settings = store.getSettings();
@@ -67,8 +110,6 @@ app.use((req, res, next) => {
   res.locals.methods = METHODS;
   res.locals.paymentsReady = payments.isConfigured();
   res.locals.providerName = payments.displayName;
-  res.locals.providerSecretKey = payments.envKeys.secret;
-  res.locals.webhookPath = payments.webhookPath;
   res.locals.isAdmin = !!(req.session && req.session.admin);
   res.locals.toDateLabel = toOrdinal(settings.eventDate);
   res.locals.toTimeLabel = toTime(settings.eventTime);
@@ -88,6 +129,30 @@ function requireAdmin(req, res, next) {
 
 function setFlash(req, msg, type = 'success') {
   req.session.flash = { msg, type };
+}
+
+function csrfToken(req) {
+  if (!req.session.csrf) {
+    req.session.csrf = crypto.randomBytes(32).toString('hex');
+  }
+  return req.session.csrf;
+}
+
+function csrfCheck(req, res, next) {
+  // Only enforce on state-changing methods
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  const token = req.body._csrf || req.query._csrf || req.headers['x-csrf-token'];
+  if (!token || token !== csrfToken(req)) {
+    return res.status(403).send('Invalid CSRF token.');
+  }
+  next();
+}
+
+function requireCsrfForm(req, res, next) {
+  res.locals.csrfToken = csrfToken(req);
+  next();
 }
 
 const upload = multer({
@@ -560,125 +625,27 @@ app.post('/admin/settings', requireAdmin, (req, res) => {
   res.redirect('/admin/settings');
 });
 
+const PAYOUT_RESTRICTION_MESSAGE = 'Contact your administrator to initiate a payout.';
+
 app.post('/admin/beneficiaries', requireAdmin, (req, res) => {
-  const { label, accountBank, accountNumber, beneficiaryName } = req.body;
-  if (!label || !accountBank || !accountNumber || !beneficiaryName) {
-    setFlash(req, 'Every beneficiary needs a label, bank, account number and account name.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-  if (!payments.isValidAccountNumber(accountNumber)) {
-    setFlash(req, 'That bank account number does not look right. Use digits only.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-  store.addBeneficiary({
-    label: label,
-    accountBank: accountBank,
-    accountNumber: accountNumber,
-    beneficiaryName: beneficiaryName,
-    makeDefault: false,
-  });
-  setFlash(req, `Saved ${String(label).trim()} as a payout destination.`);
+  setFlash(req, PAYOUT_RESTRICTION_MESSAGE, 'error');
   res.redirect('/admin#payouts');
 });
 
 app.post('/admin/beneficiaries/:id/default', requireAdmin, (req, res) => {
-  const b = store.getBeneficiary(req.params.id);
-  if (!b) {
-    setFlash(req, 'That beneficiary no longer exists.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-  store.raw.prepare('UPDATE beneficiaries SET is_default = 0').run();
-  store.raw.prepare('UPDATE beneficiaries SET is_default = 1 WHERE id = ?').run(b.id);
-  setFlash(req, `${b.label} is now the default payout destination.`);
+  setFlash(req, PAYOUT_RESTRICTION_MESSAGE, 'error');
   res.redirect('/admin#payouts');
 });
 
 app.post('/admin/beneficiaries/:id/delete', requireAdmin, (req, res) => {
-  const removed = store.deleteBeneficiary(req.params.id);
-  setFlash(
-    req,
-    removed ? 'Beneficiary removed.' : 'That beneficiary has payout history and cannot be removed.',
-    removed ? 'ok' : 'error'
-  );
+  setFlash(req, PAYOUT_RESTRICTION_MESSAGE, 'error');
   res.redirect('/admin#payouts');
 });
 
-/**
- * Sends real money. The order of operations matters: the payout row is written
- * first so that a crash or a lost provider response still leaves an audit trail,
- * and the provider is then called with that row's unique reference, which is what
- * makes a double-submit harmless rather than a doubled transfer.
- */
-app.post('/admin/payouts', requireAdmin, async (req, res) => {
-  if (!payments.isConfigured()) {
-    setFlash(req, `Payouts are unavailable until ${payments.envKeys.secret} is set.`, 'error');
-    return res.redirect('/admin#payouts');
-  }
-
-  const beneficiary = store.getBeneficiary(req.body.beneficiaryId);
-  if (!beneficiary) {
-    setFlash(req, 'Choose a saved payout destination first.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-  const amount = Number(req.body.amount);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    setFlash(req, 'Enter an amount greater than zero.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-
-  const available = store.sumNet() - store.sumPaidOut();
-  if (amount > available + 0.009) {
-    setFlash(req, `That is more than the available ${formatKwacha(available)}.`, 'error');
-    return res.redirect('/admin#payouts');
-  }
-  if (amount > payoutCeiling()) {
-    setFlash(req, 'That payout exceeds the per-payout limit. Check the PAYOUT_MAX setting.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-  if (req.body.confirm !== 'on') {
-    setFlash(req, 'Tick the confirmation box before sending a payout.', 'error');
-    return res.redirect('/admin#payouts');
-  }
-
-  const payout = store.createPayout({
-    beneficiaryId: beneficiary.id,
-    amount,
-    narration: req.body.narration,
-    initiatedBy: 'admin',
-    initiatedIp: req.ip,
-    provider: payments.name,
-  });
-
-  try {
-    const transfer = await payments.createTransfer({
-      beneficiary,
-      amount,
-      reference: payout.reference,
-      narration: payout.narration,
-      destinationBranchCode: req.body.destinationBranchCode,
-    });
-    store.markPayoutProcessing(payout.id, transfer.transferId);
-    setFlash(
-      req,
-      `Payout ${payout.reference} for ${formatKwacha(amount)} to ${beneficiary.label} is on its way.`
-    );
-  } catch (err) {
-    store.markPayout(payout.id, { status: 'failed', completeMessage: err.message });
-    setFlash(req, `Payout ${payout.reference} failed: ${err.message}`, 'error');
-  }
+app.post('/admin/payouts', requireAdmin, (req, res) => {
+  setFlash(req, PAYOUT_RESTRICTION_MESSAGE, 'error');
   res.redirect('/admin#payouts');
 });
-
-function formatKwacha(value) {
-  const n = Number(value) || 0;
-  return `K${n.toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-/** Largest single payout allowed, from PAYOUT_MAX with a hard-coded fallback. */
-function payoutCeiling() {
-  const configured = Number(process.env.PAYOUT_MAX);
-  return Number.isFinite(configured) && configured > 0 ? configured : 100000;
-}
 
 app.post('/admin/banner', requireAdmin, (req, res) => {
   upload.single('banner')(req, res, (err) => {
