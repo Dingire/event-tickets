@@ -92,8 +92,12 @@ const METHODS = {
 // Make CSRF token available to all templates
 app.use(requireCsrfForm);
 
-// CSRF protection for state-changing requests
+// CSRF protection for state-changing requests.
+// /admin/banner is excluded here because it uses multipart/form-data (file upload),
+// which multer parses inside the route handler — after this middleware runs.
+// CSRF is checked inside that route instead, after multer populates req.body.
 app.use((req, res, next) => {
+  if (req.path === '/admin/banner') return next();
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
     return csrfCheck(req, res, next);
   }
@@ -651,6 +655,12 @@ app.post('/admin/banner', requireAdmin, (req, res) => {
   upload.single('banner')(req, res, (err) => {
     if (err) {
       setFlash(req, err.message, 'error');
+      return res.redirect('/admin/settings');
+    }
+    // CSRF check must happen after multer parses the multipart body
+    const token = req.body._csrf || req.headers['x-csrf-token'];
+    if (!token || token !== csrfToken(req)) {
+      setFlash(req, 'Invalid CSRF token. Please try uploading again.', 'error');
       return res.redirect('/admin/settings');
     }
     if (!req.file) {
