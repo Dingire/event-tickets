@@ -67,6 +67,8 @@ app.use((req, res, next) => {
   );
   next();
 });
+const SESSION_MAX_AGE_MS = Number(process.env.SESSION_MAX_AGE_MINUTES || 2) * 60 * 1000;
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
@@ -78,8 +80,9 @@ app.use(
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 8 * 60 * 60 * 1000,
+      maxAge: SESSION_MAX_AGE_MS,
     },
+    rolling: true,
   })
 );
 
